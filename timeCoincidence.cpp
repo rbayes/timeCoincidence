@@ -6,9 +6,10 @@
 #include <cstdio>
 #include <iostream>
 
-bool sortByTime(const std::vector<int> &lhs, const std::vector<int> &rhs) 
+bool sortByTime(const std::vector<double> &lhs, const std::vector<double> &rhs) 
 {return (lhs[5] < rhs[5]) || ((lhs[5] == rhs[5]) && (lhs[4] < lhs[4]))
     || ((lhs[5] == rhs[5]) && (lhs[4] == lhs[4]) && (lhs[3] < rhs[3]));} 
+
 
 void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 spos, int forceCal){
   
@@ -66,14 +67,17 @@ void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 sp
   double Futime, Fenergy, Fbeta14, Fthetaij, 
     Fposx, Fposy, Fposz, Fposr;
   */
-  int mintime=99999999;
-  int Pnhit=0, Ptime=0, Pcal=0, Ptmean=0, Pvalid=0,
+  double mintime=99999999;
+  int Pnhit=0, Pvalid=0;
+  double Ptime=0, Pcal=0, Ptmean=0, 
     Pustime=0, Punstime=0, Pudtime=0;
+  double Penergy=0, Pitr=0, Pbeta14=0, Pthetaij=0,
+    Pbplk212=0, Pbplk214=0, Pbpcml=0, Pab212=0, Pab214=0;
   std::cout<<"Tree has "<<entries<<" entries"<<std::endl;
-  std::vector<std::vector<int> > indices0;
-  std::vector<std::vector<int> > indices1;
-  std::vector<int> iprompt;
-  std::vector<int> idelay;
+  std::vector<std::vector<double> > indices0;
+  std::vector<std::vector<double> > indices1;
+  // std::vector<int> iprompt;
+  // std::vector<int> idelay;
   tree->GetEntry(0);
   double firsttime = double(ustime);
   double firstday  = double(udtime);
@@ -91,20 +95,29 @@ void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 sp
       }
       else {
 	if(j%1000==0) std::cout<<j<<std::endl;
-	std::vector<int> tempt;
-	utime = ((double(udtime) - firstday)*86400 + (double(ustime) + double(unstime)*1e-9) - firsttime)/ 1e-4;
-	tempt.push_back(j);
+	std::vector<double> tempt;
+	utime = ((double(udtime) - firstday)*86400 + (double(ustime) + double(unstime)*1e-9) - firsttime)/ 1e-6;
+	tempt.push_back(double(j));
 	tempt.push_back(utime);
-	tempt.push_back(nhit);
+	tempt.push_back(double(nhit));
 	tempt.push_back(ustime);
 	tempt.push_back(unstime);
 	tempt.push_back(udtime);
 	tempt.push_back(isCal || forceCal==1 ? 1:0);
-	tempt.push_back(fitValid);
-	tempt.push_back(int(meanTime));
+	tempt.push_back(double(fitValid));
+	tempt.push_back(meanTime);
 	tempt.push_back(posx);
 	tempt.push_back(posy);
 	tempt.push_back(posz);
+	tempt.push_back(energy);
+	tempt.push_back(itr);
+	tempt.push_back(beta14);
+	tempt.push_back(thetaij);
+	tempt.push_back(biPolike212);
+	tempt.push_back(biPolike214);
+	tempt.push_back(biPoCumul);
+	tempt.push_back(alphaBeta212);
+	tempt.push_back(alphaBeta214);
 	indices0.push_back(tempt);
 	// indices1.push_back(tempt);
 
@@ -115,92 +128,126 @@ void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 sp
     std::sort(indices0.begin(), indices0.end(), sortByTime);
     // std::sort(indices1.begin(), indices1.end(), sortByTime);
     // for (int l=0; l<entries; l++){
+    std::cout<<"indices list sorted"<<std::endl;
     indices1 = indices0;
     auto l = indices0.begin();
     int ltest=0;
     do {
+
+      bool classifierdat = false;
+      if(int((*l)[7]) >0){
+	classifierdat = true;
+      }
       
       Ptime = (*l)[1];
-      Pnhit = (*l)[2];
+      Pnhit = int((*l)[2]);
       Pustime = (*l)[3];
       Punstime = (*l)[4];
       Pudtime = (*l)[5];
       Pcal  = (*l)[6];
-      Pvalid = (*l)[7];
+      Pvalid = int((*l)[7]);
       Ptmean = (*l)[8];
-      TVector3 promptPos(double((*l)[9]) - posx,
-			 double((*l)[10]) - posy,
-			 double((*l)[11]) - posz);
+      TVector3 promptPos((double((*l)[9])),
+			 (double((*l)[10])),
+			 (double((*l)[11])));
+      Penergy = (*l)[12];
+      Pitr    = (*l)[13];
+      Pbeta14 = (*l)[14];
+      Pthetaij = (*l)[15];
+      Pbplk212 = (*l)[16];
+      Pbplk214 = (*l)[17];
+      Pbpcml   = (*l)[18];
+      Pab212   = (*l)[19];
+      Pab214   = (*l)[20];
       // Pposx  = (*l)[9];
       // Pposy  = (*l)[10];
       // Pposz  = (*l)[11];
-
+      // std::cout<<"Copied variables"<<std::endl;
       
       int minj = -1;
       int minnhit = 9999;
       int itrmin = -1;
       int k=0;
-      if((Pnhit > 12 && indices1.size() > 0) && Pvalid==1) {
-	auto pev = find(indices1.begin(), indices1.end(), (*l));
+      if((Pnhit > 12 && indices1.size() > 0) && Pvalid>0) {
+	
+	histos->SetPromptData(int(Pvalid), Ptmean, Ptime,
+			      int(Pnhit), Penergy, Pbeta14, 
+			      Pthetaij, Pitr, promptPos,
+			      TVector3(0, 0, 1));
+	
+	if(classifierdat){
+	  histos->SetPromptClassifierData(Pbplk212, Pbplk214, Pbpcml,
+					  Pab212, Pab214);
+	}
+	
+	// auto pev = find(indices1.begin(), indices1.end(), (*l));
+	// std::cout<<"Evaluating event "<<int((*pev)[0])<<std::endl;
 	if(!Pcal){ // If this is not a calibration event run time coincidence
-	  for(auto j=indices1.begin(); j < pev+3; j++){
-	    
-	    // std::cout<<indices0[l][0]<<std::endl;
-	    int loctime = (*j)[1];
-	    int locnhit = (*j)[2];
-	    int locdtime = (*j)[5];
-	    int locvalid = (*j)[7];
-	    int loctmean = (*j)[8];
-	    TVector3 locpos(double((*j)[9])-posx,
-			    double((*j)[10])-posy,
-			    double((*j)[11])-posz);
-	    double tdiff = (loctime - Ptime)*100;
-	    if(locdtime != Pudtime){
-	      // Assume we have gained a day
-	      double tdiff = (loctime + 86400 - Ptime)*100;
+	  auto j = indices1.begin();
+	  auto jend = indices1.end();
+	  bool sequenceDone = false, anchorFound=false;
+	  // for(auto j=indices1.begin(); j==std::next(pev,3); j++){
+	  while(j!=jend){ 
+	    // std::cout<<(*j)[0]<<std::endl;
+	    if(!anchorFound){
+	      if((*j)[0]==(*l)[0]){
+		anchorFound=true;
+		jend=std::next(j,3);
+		j-=3;
+	      } else {
+		++j;
+		continue;
+	      }
 	    }
-	    double tDdelta = (locpos.Mag()/3);
-	    double tPdelta = (promptPos.Mag()/3);
-	    // std::cout<<"inner loop"<<j[0]<<std::endl;
-	    if(tdiff >= 0 && tdiff < mintime && tdiff < 50000){
-	      if(locnhit > 50){
-		// Check the relative number of hits in the event.
-		if(locvalid==1 && tDdelta > tPdelta){
-		  mintime = (loctime - Ptime)*100;
-		  minnhit = locnhit;
-		  minj = (*j)[0];
-		  itrmin = k;
+	    double loctime = (*j)[1];
+	    double locnhit = (*j)[2];
+	    double locdtime = (*j)[5];
+	    double locvalid = (*j)[7];
+	    double loctmean = (*j)[8];
+	    TVector3 locpos((double((*j)[9])),
+			    (double((*j)[10])),
+			    (double((*j)[11])));
+	    double tdiff = (loctime - Ptime);
+	    
+	    // std::cout<<"Evaluating event "<<int((*l)[0])<<" with "
+	    // <<(*j)[0]<<" tdiff = "<<tdiff<<std::endl;
+	    /*
+	      if(locdtime != Pudtime){
+	      // Assume we have gained a day
+	      double tdiff = (loctime  - Ptime);
+	      }
+	    */
+	    if (locvalid==1 ){
+	      double tDdelta = 5000.;
+	      double tPdelta = (promptPos - locpos).Mag();
+	      if(tdiff >= 0 && tdiff < mintime && tdiff < 50000){
+		if(locnhit < Pnhit){
+		  // Check the relative number of hits in the event.
+		  if(tDdelta > tPdelta){
+		    mintime = (loctime - Ptime);
+		    minnhit = locnhit;
+		    minj = int((*j)[0]);
+		    itrmin = k;
+		  }
 		}
 	      }
 	    }
 	    k++;
+	    ++j;
 	  }
-	  if(ltest % 100 == 0){
+	  if(ltest % 1000 == 0 || minj > 0){
 	    
 	    // std::cout<<"Length of index vector is "<<indices1.size()<<std::endl;
 	    // 
 	    
-	    // std::cout<<"Length of index vector is "<<indices1.size()<<std::endl;
-	    std::cout<<ltest<<" Matched events "<<(*l)[0]<<" and "<<minj<<" with tdiff = "
+	    //std::cout<<"Length of index vector is "<<indices1.size()<<std::endl;
+	    std::cout<<ltest<<" Matched events "<<int((*l)[0])<<" and "<<minj<<" with tdiff = "
 		     <<mintime<<", nhit1 = "<<Pnhit<<", nhit2 = "<<minnhit<<std::endl;
 	  }
 	}
-	bool classifierdat = false;
-	if(fitValid>0){
-	  classifierdat = true;
-	}
-	tree->GetEntry((*l)[0]);
+	// tree->GetEntry((*l)[0]);
 	
-	double ltime = (double(ustime) + double(unstime)*1e-9)/1e-6;
-	histos->SetPromptData(fitValid, meanTime,
-			      ltime, nhit, energy, beta14, 
-			      thetaij, itr, TVector3(posx, posy, posz),
-			      TVector3(dirx, diry, dirz));
-	
-	if(classifierdat){
-	  histos->SetClassifierData(biPolike212, biPolike214, biPoCumul,
-				    alphaBeta212, alphaBeta214);
-	}
+	// double ltime = (double(ustime) + double(unstime)*1e-9)/1e-6;
 	/* histos->SetPromptSelectedData(ltime, nhit, energy, beta14, 
 	   thetaij, TVector3(posx, posy, posz),
 	   TVector3(dirx, diry, dirz));    
@@ -208,11 +255,17 @@ void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 sp
 	
 	if (minj > 0){
 	  tree->GetEntry(minj);
-	  double jtime = (double(ustime) + double(unstime)*1e-9)/1e-6;
+	  double jtime = ((double(udtime) - firstday)*86400 + (double(ustime) + double(unstime)*1e-9) - firsttime)/ 1e-6;
+	  // (double(ustime) + double(unstime)*1e-9)/1e-6;
 	  histos->SetDelayedData(fitValid, meanTime,
 				 jtime, nhit, energy, beta14, 
 				 thetaij, itr, TVector3(posx, posy, posz), 
 				 TVector3(dirx, diry, dirz));
+	  
+	  if(classifierdat){
+	    histos->SetDelayedClassifierData(biPolike212, biPolike214, biPoCumul,
+					    alphaBeta212, alphaBeta214);
+	  }
 	  /*
 	    if(IsEventGood())
 	    histos->SetDelaySelectedData(jtime, nhit, energy, beta14, 
@@ -234,6 +287,8 @@ void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 sp
 	  */
 	  // Don't want a delayed event used as a prompt event
 	  // indices0.erase(indices0.begin() + ltest);
+	  
+	  while((*l)[0]<=minj) ++l; 
 	}
 	else if(classifierdat && Pcal==0){
 	  histos->FillAntiHistograms();
@@ -241,10 +296,10 @@ void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 sp
 	mintime=999999999;
 	
       }
-      ++l; 
+      ++l;
       ltest++;
     }
-    while(l < indices0.end()-10 && indices1.size() > 0);
+    while(l < indices0.end()-3 && indices1.size() > 0);
   }
   histos->WriteHistograms();
   

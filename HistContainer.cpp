@@ -7,6 +7,7 @@ HistContainer::HistContainer(std::string outfile, TVector3 sourcepos)
 
   promptT   = new TTree("promptT", "Prompt Time Coincidence Events");
   promptT->Branch("sourcepos",&sourcepos, "x:y:z");
+  promptT->Branch("fitValid", &_fitValid, "fitValid/D");
   promptT->Branch("posx", &_Pposx, "posx/D");
   promptT->Branch("posy", &_Pposy, "posy/D");
   promptT->Branch("posz", &_Pposz, "posz/D");
@@ -25,6 +26,7 @@ HistContainer::HistContainer(std::string outfile, TVector3 sourcepos)
   promptT->Branch("timediff",&_TimeDiff, "timediff/D");
   delayedT  = new TTree("delayedT","Delayed Time Coincidence Events");
   delayedT->Branch("sourcepos",&sourcepos, "x:y:z");
+  delayedT->Branch("fitValid", &_DfitValid, "fitValid/D");
   delayedT->Branch("posx", &_Dposx, "posx/D");
   delayedT->Branch("posy", &_Dposy, "posy/D");
   delayedT->Branch("posz", &_Dposz, "posz/D");
@@ -35,18 +37,19 @@ HistContainer::HistContainer(std::string outfile, TVector3 sourcepos)
   delayedT->Branch("beta14", &_Dbeta14, "beta14/D");
   delayedT->Branch("thetaij", &_Dthetaij, "thetaij/D");
   delayedT->Branch("itr", &_Ditr, "itr/D");
-  delayedT->Branch("bipolike212", &_bipolike212, "bipolike212/D");
-  delayedT->Branch("bipolike214", &_bipolike214, "bipolike214/D");
-  delayedT->Branch("bipocumulat", &_bipocumulat, "bipocumulat/D");
-  delayedT->Branch("alphabeta212",&_alphabeta212, "alphabeta212/D");
-  delayedT->Branch("alphabeta214",&_alphabeta214, "alphabeta214/D");
+  delayedT->Branch("bipolike212", &d_bipolike212, "bipolike212/D");
+  delayedT->Branch("bipolike214", &d_bipolike214, "bipolike214/D");
+  delayedT->Branch("bipocumulat", &d_bipocumulat, "bipocumulat/D");
+  delayedT->Branch("alphabeta212",&d_alphabeta212, "alphabeta212/D");
+  delayedT->Branch("alphabeta214",&d_alphabeta214, "alphabeta214/D");
   delayedT->Branch("timediff",&_TimeDiff, "timediff/D");
   
   unmatchT  = new TTree("unmatchT","Unmatched Calibration Events");
   unmatchT->Branch("sourcepos",&sourcepos, 64000);
-  unmatchT->Branch("posx", &_posx, "posx/D");
-  unmatchT->Branch("posy", &_posy, "posy/D");
-  unmatchT->Branch("posz", &_posz, "posz/D");
+  unmatchT->Branch("fitValid", &_fitValid, "fitValid/D");
+  unmatchT->Branch("posx", &_Pposx, "posx/D");
+  unmatchT->Branch("posy", &_Pposy, "posy/D");
+  unmatchT->Branch("posz", &_Pposz, "posz/D");
   unmatchT->Branch("dir", &_dir, 64000);
   unmatchT->Branch("nhit", &_nhit, "nhit/I");
   unmatchT->Branch("energy", &_energy, "energy/D");
@@ -124,7 +127,7 @@ HistContainer::HistContainer(std::string outfile, TVector3 sourcepos)
   
 }
 
-void HistContainer::SetClassifierData(double bipolike212, double bipolike214,
+void HistContainer::SetPromptClassifierData(double bipolike212, double bipolike214,
 				      double bipocumulat, double alphabeta212,
 				      double alphabeta214){
   _bipolike212 = bipolike212;
@@ -134,10 +137,21 @@ void HistContainer::SetClassifierData(double bipolike212, double bipolike214,
   _alphabeta214 = alphabeta214;
 }
 
+void HistContainer::SetDelayedClassifierData(double bipolike212, double bipolike214,
+				      double bipocumulat, double alphabeta212,
+				      double alphabeta214){
+  d_bipolike212 = bipolike212;
+  d_bipolike214 = bipolike214;
+  d_bipocumulat = bipocumulat;
+  d_alphabeta212 = alphabeta212;
+  d_alphabeta214 = alphabeta214;
+}
+
 void HistContainer::SetPromptData(int fitValid, double meanTime,
 				  double utime, int nhit, double energy, 
 				  double beta14, double thetaij, double itr,
 				  TVector3 pos, TVector3 dir){
+  _fitValid = fitValid;
   _Putime = utime;
   _Pnhit  = nhit;
   _Penergy = energy;
@@ -191,6 +205,8 @@ void HistContainer::SetDelayedData(int fitValid, double meanTime,
 				   double utime, int nhit, double energy, 
 				   double beta14, double thetaij, double itr, 
 				   TVector3 pos, TVector3 dir){
+  
+  _DfitValid = fitValid;
   _Dutime = utime;
   _Dnhit  = nhit;
   _Denergy = energy;

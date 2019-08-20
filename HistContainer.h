@@ -8,12 +8,17 @@
 #include "TFile.h"
 #include "TTree.h"
 
+
+
 class HistContainer{
  public:
   HistContainer(std::string outfile, TVector3 sourcepos);
   ~HistContainer();
 
-  void SetClassifierData(double bipolike212, double bipolike214,
+  void SetPromptClassifierData(double bipolike212, double bipolike214,
+			 double bipocumulat, double alphabeta212,
+			 double alphabeta214);
+  void SetDelayedClassifierData(double bipolike212, double bipolike214,
 			 double bipocumulat, double alphabeta212,
 			 double alphabeta214);
   bool IsEventGood(int fitValid);
@@ -32,6 +37,7 @@ class HistContainer{
   TVector3 sourcepos;
   TVector3 _pos;
   TVector3 _dir;
+  int _fitValid;
   double _posx;
   double _posy;
   double _posz;
@@ -57,6 +63,8 @@ class HistContainer{
   double _Pposz;
   TVector3 _Pdir;
 
+  
+  int _DfitValid;
   int    _Dnhit;
   double _Dutime;
   double _Denergy;
@@ -75,6 +83,12 @@ class HistContainer{
   double _bipocumulat;
   double _alphabeta212;
   double _alphabeta214;
+    
+  double d_bipolike212;
+  double d_bipolike214;
+  double d_bipocumulat;
+  double d_alphabeta212;
+  double d_alphabeta214;
   
   TFile* ofile;
 
