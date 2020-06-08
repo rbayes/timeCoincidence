@@ -24,10 +24,16 @@ class HistContainer{
   bool IsEventGood(int fitValid);
   void SetPromptData(int fitValid, double meanTime,
 		     double utime, int nhit, double energy, double beta14, 
-		     double thetaij, double itr, TVector3 pos, TVector3 dir);
+		     double thetaij, double itr, TVector3 pos, TVector3 dir,
+		     ULong64_t dcApplied,
+		     ULong64_t dcFlagged, double mcke1, double mcke2,
+		     double mcEdep, int pdg1, int pdg2);
   void SetDelayedData(int fitValid, double meanTime,
 		      double utime, int nhit, double energy, double beta14, 
-		      double thetaij, double itr, TVector3 pos, TVector3 dir);
+		      double thetaij, double itr, TVector3 pos,
+		      TVector3 dir, ULong64_t dcApplied,
+		      ULong64_t dcFlagged, double mcke1, double mcke2,
+		      double mcEdep, int pdg1, int pdg2);
   
   void FillHistograms(bool fillclassifier);
   void FillAntiHistograms();
@@ -38,6 +44,20 @@ class HistContainer{
   TVector3 _pos;
   TVector3 _dir;
   int _fitValid;
+  ULong64_t _dcApplied;
+  ULong64_t _dcFlagged;
+  double _mcke1;
+  double _mcke2;
+  double _mcEdep;
+  int _pdg1;
+  int _pdg2;
+  ULong64_t _DdcApplied;
+  ULong64_t _DdcFlagged;
+  double _Dmcke1;
+  double _Dmcke2;
+  double _DmcEdep;
+  int _Dpdg1;
+  int _Dpdg2;
   double _posx;
   double _posy;
   double _posz;
@@ -77,6 +97,7 @@ class HistContainer{
   double _Dposz;
   TVector3 _Ddir;
   double _TimeDiff;
+  double _PosDiff;
   
   double _bipolike212;
   double _bipolike214;

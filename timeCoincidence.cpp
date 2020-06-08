@@ -26,18 +26,23 @@ void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 sp
     dirx, diry, dirz;
   double biPolike212, biPolike214, biPoCumul, alphaBeta212, alphaBeta214;
   double meanTime=0;
-  int nhit=0, unstime=0, ustime=0, udtime=0;
-  double timingPeaks=0.0;
+  int nhit=0, unstime=0, ustime=0, udtime=0, pdg1=0, pdg2=0;
+  double timingPeaks=0.0, mcke1=0, mcke2=0, mcEdep=0;
   ULong64_t dcApplied, dcFlagged;
   bool fitValid=false, isCal=false;
   double utime=0; // in microseconds
+  tree->SetBranchAddress("pdg1",&pdg1);
+  tree->SetBranchAddress("pdg2",&pdg2);
+  tree->SetBranchAddress("mcke1",&mcke1);
+  tree->SetBranchAddress("mcke2",&mcke2);
+  tree->SetBranchAddress("mcEdep",&mcEdep);
   tree->SetBranchAddress("time",&meanTime);
   tree->SetBranchAddress("isCal", &isCal);
   tree->SetBranchAddress("dcApplied", &dcApplied);
   tree->SetBranchAddress("dcFlagged", &dcFlagged);
   tree->SetBranchAddress("timingPeaks",&timingPeaks);
   tree->SetBranchAddress("fitValid",&fitValid);
-  tree->SetBranchAddress("nhits", &nhit);
+  tree->SetBranchAddress("nhitsCleaned", &nhit);
   tree->SetBranchAddress("uTNSecs", &unstime);
   tree->SetBranchAddress("uTSecs", &ustime);
   tree->SetBranchAddress("uTDays", &udtime);
@@ -68,11 +73,13 @@ void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 sp
     Fposx, Fposy, Fposz, Fposr;
   */
   double mintime=99999999;
-  int Pnhit=0, Pvalid=0;
+  int Pnhit=0, Pvalid=0, Ppdg1=0, Ppdg2=0;
   double Ptime=0, Pcal=0, Ptmean=0, 
     Pustime=0, Punstime=0, Pudtime=0;
   double Penergy=0, Pitr=0, Pbeta14=0, Pthetaij=0,
     Pbplk212=0, Pbplk214=0, Pbpcml=0, Pab212=0, Pab214=0;
+  ULong64_t PdcApplied, PdcFlagged;
+  double Pmcke1, Pmcke2, PmcEdep;
   std::cout<<"Tree has "<<entries<<" entries"<<std::endl;
   std::vector<std::vector<double> > indices0;
   std::vector<std::vector<double> > indices1;
@@ -84,13 +91,16 @@ void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 sp
   for (int j=0; j < entries; j++){
     tree->GetEntry(j);
     double ltime = ((double(udtime) - firstday)*86400 + double(ustime) + double(unstime)*1e-9)/1e-6;
-    if ( ( ( dcApplied & 0xFB0000017FFE) & dcFlagged) == (dcApplied & 0xFB0000017FFE)){
+    // 
+    if(nhit>180){
       if(isCal || forceCal==1){
 	if(j%1000==0) std::cout<<j<<std::endl;
 	histos->SetPromptData(fitValid, meanTime,
 			      ltime, nhit, energy, beta14, 
 			      thetaij, itr, TVector3(posx, posy, posz),
-			      TVector3(dirx, diry, dirz));
+			      TVector3(dirx, diry, dirz),  dcApplied,
+			      dcFlagged, mcke1, mcke2,
+			      mcEdep, pdg1, pdg2);
 	histos->FillAntiHistograms();
       }
       else {
@@ -118,6 +128,13 @@ void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 sp
 	tempt.push_back(biPoCumul);
 	tempt.push_back(alphaBeta212);
 	tempt.push_back(alphaBeta214);
+	tempt.push_back(double(dcApplied));
+	tempt.push_back(double(dcFlagged));
+	tempt.push_back(mcke1);
+	tempt.push_back(mcke2);
+	tempt.push_back(mcEdep);
+	tempt.push_back(pdg1);
+	tempt.push_back(pdg2);
 	indices0.push_back(tempt);
 	// indices1.push_back(tempt);
 
@@ -139,6 +156,7 @@ void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 sp
 	classifierdat = true;
       }
       
+      
       Ptime = (*l)[1];
       Pnhit = int((*l)[2]);
       Pustime = (*l)[3];
@@ -159,6 +177,13 @@ void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 sp
       Pbpcml   = (*l)[18];
       Pab212   = (*l)[19];
       Pab214   = (*l)[20];
+      PdcApplied = ULong64_t((*l)[21]);
+      PdcFlagged = ULong64_t((*l)[22]);
+      Pmcke1 = (*l)[23];
+      Pmcke2 = (*l)[24];
+      PmcEdep = (*l)[25];
+      Ppdg1 = int((*l)[26]);
+      Ppdg2 = int((*l)[27]);
       // Pposx  = (*l)[9];
       // Pposy  = (*l)[10];
       // Pposz  = (*l)[11];
@@ -168,21 +193,27 @@ void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 sp
       int minnhit = 9999;
       int itrmin = -1;
       int k=0;
-      if((Pnhit > 12 && indices1.size() > 0) && Pvalid>0) {
-	
+      
+      if(Pvalid>0 && Pnhit > 180 && Pnhit < 2000) {
 	histos->SetPromptData(int(Pvalid), Ptmean, Ptime,
 			      int(Pnhit), Penergy, Pbeta14, 
 			      Pthetaij, Pitr, promptPos,
-			      TVector3(0, 0, 1));
+			      TVector3(0, 0, 1), PdcApplied,
+			      PdcFlagged, Pmcke1, Pmcke2, PmcEdep,
+			      Ppdg1, Ppdg2);
 	
 	if(classifierdat){
 	  histos->SetPromptClassifierData(Pbplk212, Pbplk214, Pbpcml,
 					  Pab212, Pab214);
 	}
 	
-	// auto pev = find(indices1.begin(), indices1.end(), (*l));
-	// std::cout<<"Evaluating event "<<int((*pev)[0])<<std::endl;
-	if(!Pcal){ // If this is not a calibration event run time coincidence
+	double tPdelta = -1.;
+	if((Pnhit > 180 && indices1.size() > 0) && !Pcal){
+	  // If this is not a calibration event run time coincidence
+	   
+	  // auto pev = find(indices1.begin(), indices1.end(), (*l));
+	  // std::cout<<"Evaluating event "<<int((*pev)[0])<<std::endl;
+   
 	  auto j = indices1.begin();
 	  auto jend = indices1.end();
 	  bool sequenceDone = false, anchorFound=false;
@@ -192,8 +223,8 @@ void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 sp
 	    if(!anchorFound){
 	      if((*j)[0]==(*l)[0]){
 		anchorFound=true;
-		jend=std::next(j,3);
-		j-=3;
+		jend=std::next(j,2);
+		// j-=1;
 	      } else {
 		++j;
 		continue;
@@ -207,6 +238,12 @@ void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 sp
 	    TVector3 locpos((double((*j)[9])),
 			    (double((*j)[10])),
 			    (double((*j)[11])));
+	    
+	    ULong64_t locdcApplied = ULong64_t((*l)[21]);
+	    ULong64_t locdcFlagged = ULong64_t((*l)[22]);
+	    double locmcke1 = (*l)[23];
+	    double locmcke2 = (*l)[24];
+	    double locmcEdep = (*l)[25];
 	    double tdiff = (loctime - Ptime);
 	    
 	    // std::cout<<"Evaluating event "<<int((*l)[0])<<" with "
@@ -217,11 +254,11 @@ void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 sp
 	      double tdiff = (loctime  - Ptime);
 	      }
 	    */
+	    double tDdelta = 1000.;
 	    if (locvalid==1 ){
-	      double tDdelta = 5000.;
-	      double tPdelta = (promptPos - locpos).Mag();
+	      tPdelta = (promptPos - locpos).Mag();
 	      if(tdiff >= 0 && tdiff < mintime && tdiff < 50000){
-		if(locnhit < Pnhit){
+		if(locnhit != Pnhit){
 		  // Check the relative number of hits in the event.
 		  if(tDdelta > tPdelta){
 		    mintime = (loctime - Ptime);
@@ -242,7 +279,7 @@ void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 sp
 	    
 	    //std::cout<<"Length of index vector is "<<indices1.size()<<std::endl;
 	    std::cout<<ltest<<" Matched events "<<int((*l)[0])<<" and "<<minj<<" with tdiff = "
-		     <<mintime<<", nhit1 = "<<Pnhit<<", nhit2 = "<<minnhit<<std::endl;
+		     <<mintime<<" and posdiff = "<<tPdelta<<", nhit1 = "<<Pnhit<<", nhit2 = "<<minnhit<<std::endl;
 	  }
 	}
 	// tree->GetEntry((*l)[0]);
@@ -253,14 +290,15 @@ void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 sp
 	   TVector3(dirx, diry, dirz));    
 	*/
 	
-	if (minj > 0){
+	if (minj > 0 && minj < tree->GetEntries()){
 	  tree->GetEntry(minj);
 	  double jtime = ((double(udtime) - firstday)*86400 + (double(ustime) + double(unstime)*1e-9) - firsttime)/ 1e-6;
 	  // (double(ustime) + double(unstime)*1e-9)/1e-6;
 	  histos->SetDelayedData(fitValid, meanTime,
 				 jtime, nhit, energy, beta14, 
 				 thetaij, itr, TVector3(posx, posy, posz), 
-				 TVector3(dirx, diry, dirz));
+				 TVector3(dirx, diry, dirz), dcApplied,
+				 dcFlagged, mcke1, mcke2, mcEdep, pdg1, pdg2);
 	  
 	  if(classifierdat){
 	    histos->SetDelayedClassifierData(biPolike212, biPolike214, biPoCumul,
@@ -288,7 +326,7 @@ void cycleTree(std::vector<std::string> infile, std::string outfile, TVector3 sp
 	  // Don't want a delayed event used as a prompt event
 	  // indices0.erase(indices0.begin() + ltest);
 	  
-	  while((*l)[0]<=minj) ++l; 
+	  while((*l)[0]<minj) ++l; 
 	}
 	else if(classifierdat && Pcal==0){
 	  histos->FillAntiHistograms();

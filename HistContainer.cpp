@@ -7,12 +7,20 @@ HistContainer::HistContainer(std::string outfile, TVector3 sourcepos)
 
   promptT   = new TTree("promptT", "Prompt Time Coincidence Events");
   promptT->Branch("sourcepos",&sourcepos, "x:y:z");
-  promptT->Branch("fitValid", &_fitValid, "fitValid/D");
+  promptT->Branch("fitValid", &_fitValid, "fitValid/I");
+  promptT->Branch("dcApplied",&_dcApplied, "dcApplied/l");
+  promptT->Branch("dcFlagged",&_dcFlagged, "dcFlagged/l");
+  promptT->Branch("pdg1",&_pdg1, "pdg1/I");
+  promptT->Branch("pdg1",&_pdg2, "pdg2/I");
+  promptT->Branch("mcke1",&_mcke1, "mcke1/D");
+  promptT->Branch("mcke2",&_mcke2, "mcke2/D");
+  promptT->Branch("mcEdep",&_mcEdep, "mcEdep/D");
   promptT->Branch("posx", &_Pposx, "posx/D");
   promptT->Branch("posy", &_Pposy, "posy/D");
   promptT->Branch("posz", &_Pposz, "posz/D");
   promptT->Branch("dir", &_Pdir, "x:y:z");
-  promptT->Branch("nhit", &_Pnhit, "nhit/I");
+  promptT->Branch("nhitsCleaned", &_Pnhit, "nhitsCleaned/I");
+  promptT->Branch("nhitsDelayed", &_Dnhit, "nhitsDelayed/I");
   promptT->Branch("energy", &_Penergy, "energy/D");
   promptT->Branch("utime", &_Putime, "utime/D");
   promptT->Branch("beta14", &_Pbeta14, "beta14/D");
@@ -24,14 +32,24 @@ HistContainer::HistContainer(std::string outfile, TVector3 sourcepos)
   promptT->Branch("alphabeta212",&_alphabeta212, "alphabeta212/D");
   promptT->Branch("alphabeta214",&_alphabeta214, "alphabeta214/D");
   promptT->Branch("timediff",&_TimeDiff, "timediff/D");
+  promptT->Branch("posdiff",&_PosDiff, "posdiff/D");
+  
   delayedT  = new TTree("delayedT","Delayed Time Coincidence Events");
   delayedT->Branch("sourcepos",&sourcepos, "x:y:z");
   delayedT->Branch("fitValid", &_DfitValid, "fitValid/D");
+  delayedT->Branch("dcApplied",&_DdcApplied, "dcApplied/l");
+  delayedT->Branch("dcFlagged",&_DdcFlagged, "dcFlagged/l");
+  delayedT->Branch("pdg1",&_pdg1, "pdg1/I");
+  delayedT->Branch("pdg1",&_pdg2, "pdg2/I");
+  delayedT->Branch("mcke1",&_Dmcke1, "mcke1/D");
+  delayedT->Branch("mcke2",&_Dmcke2, "mcke2/D");
+  delayedT->Branch("mcEdep",&_DmcEdep, "mcEdep/D");
   delayedT->Branch("posx", &_Dposx, "posx/D");
   delayedT->Branch("posy", &_Dposy, "posy/D");
   delayedT->Branch("posz", &_Dposz, "posz/D");
   delayedT->Branch("dir", &_Ddir, "x:y:z");
-  delayedT->Branch("nhit", &_Dnhit, "nhit/I");
+  delayedT->Branch("nhitsCleaned", &_Dnhit, "nhitsCleaned/I");
+  delayedT->Branch("nhitsPrompt", &_Pnhit, "nhitsPrompt/I");
   delayedT->Branch("energy", &_Denergy, "energy/D");
   delayedT->Branch("utime", &_Dutime, "utime/D");
   delayedT->Branch("beta14", &_Dbeta14, "beta14/D");
@@ -43,15 +61,23 @@ HistContainer::HistContainer(std::string outfile, TVector3 sourcepos)
   delayedT->Branch("alphabeta212",&d_alphabeta212, "alphabeta212/D");
   delayedT->Branch("alphabeta214",&d_alphabeta214, "alphabeta214/D");
   delayedT->Branch("timediff",&_TimeDiff, "timediff/D");
+  delayedT->Branch("posdiff",&_PosDiff, "posdiff/D");
   
   unmatchT  = new TTree("unmatchT","Unmatched Calibration Events");
   unmatchT->Branch("sourcepos",&sourcepos, 64000);
   unmatchT->Branch("fitValid", &_fitValid, "fitValid/D");
+  unmatchT->Branch("dcApplied",&_dcApplied, "dcApplied/l");
+  unmatchT->Branch("dcFlagged",&_dcFlagged, "dcFlagged/l");
+  unmatchT->Branch("pdg1",&_pdg1, "pdg1/I");
+  unmatchT->Branch("pdg1",&_pdg2, "pdg2/I");
+  unmatchT->Branch("mcke1",&_mcke1, "mcke1/D");
+  unmatchT->Branch("mcke2",&_mcke2, "mcke2/D");
+  unmatchT->Branch("mcEdep",&_mcEdep, "mcEdep/D");
   unmatchT->Branch("posx", &_Pposx, "posx/D");
   unmatchT->Branch("posy", &_Pposy, "posy/D");
   unmatchT->Branch("posz", &_Pposz, "posz/D");
   unmatchT->Branch("dir", &_dir, 64000);
-  unmatchT->Branch("nhit", &_nhit, "nhit/I");
+  unmatchT->Branch("nhitsCleaned", &_nhit, "nhitsCleaned/I");
   unmatchT->Branch("energy", &_energy, "energy/D");
   unmatchT->Branch("utime", &_utime, "utime/D");
   unmatchT->Branch("beta14", &_beta14, "beta14/D");
@@ -150,7 +176,9 @@ void HistContainer::SetDelayedClassifierData(double bipolike212, double bipolike
 void HistContainer::SetPromptData(int fitValid, double meanTime,
 				  double utime, int nhit, double energy, 
 				  double beta14, double thetaij, double itr,
-				  TVector3 pos, TVector3 dir){
+				  TVector3 pos, TVector3 dir, ULong64_t dcApplied,
+				  ULong64_t dcFlagged, double mcke1, double mcke2,
+				  double mcEdep, int pdg1, int pdg2){
   _fitValid = fitValid;
   _Putime = utime;
   _Pnhit  = nhit;
@@ -170,6 +198,13 @@ void HistContainer::SetPromptData(int fitValid, double meanTime,
   _utime = utime;
   _itr   = itr;
   _mtime = meanTime;
+  _dcApplied = dcApplied;
+  _dcFlagged = dcFlagged;
+  _mcke1 = mcke1;
+  _mcke2 = mcke2;
+  _mcEdep = mcEdep;
+  _pdg1 = pdg1;
+  _pdg2 = pdg2;
   _GoodPEvent = IsEventGood(fitValid);
 }
 
@@ -204,7 +239,9 @@ bool HistContainer::IsEventGood(int fitValid){
 void HistContainer::SetDelayedData(int fitValid, double meanTime,
 				   double utime, int nhit, double energy, 
 				   double beta14, double thetaij, double itr, 
-				   TVector3 pos, TVector3 dir){
+				   TVector3 pos, TVector3 dir, ULong64_t dcApplied,
+				  ULong64_t dcFlagged, double mcke1, double mcke2,
+				   double mcEdep, int pdg1, int pdg2){
   
   _DfitValid = fitValid;
   _Dutime = utime;
@@ -222,11 +259,19 @@ void HistContainer::SetDelayedData(int fitValid, double meanTime,
   _dir = dir;
   _beta14 = beta14;
   _mtime = meanTime;
+  _DdcApplied = dcApplied;
+  _DdcFlagged = dcFlagged;
+  _Dmcke1 = mcke1;
+  _Dmcke2 = mcke2;
+  _DmcEdep = mcEdep;
+  _Dpdg1 = pdg1;
+  _Dpdg2 = pdg2;
   _GoodDEvent = IsEventGood(fitValid);
 }
 
 void HistContainer::FillHistograms(bool fillclassifier){
   _TimeDiff = _Dutime - _Putime;
+  _PosDiff  = (_Dpos - _Ppos).Mag();
   promptT->Fill();
   delayedT->Fill();
   TimeDiff->Fill(_Dutime - _Putime);
